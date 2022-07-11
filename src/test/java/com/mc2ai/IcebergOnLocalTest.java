@@ -25,6 +25,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -33,7 +38,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-// TODO
+
+@Testcontainers
 public class IcebergOnLocalTest {
 
   JdbcCatalog catalog = new JdbcCatalog();
@@ -51,7 +57,7 @@ public class IcebergOnLocalTest {
   PartitionSpec spec =
       PartitionSpec.builderFor(schema).hour("event_time").identity("level").build();
 
-  String JDBC_CATALOG_URI = "jdbc:postgresql://192.168.31.65:5432/demo_catalog_local";
+  String JDBC_CATALOG_URI;
   String JDBC_CATALOG_USER = "admin";
   String JDBC_CATALOG_PASSWORD = "password";
   String CATALOG_NAME = "demo_local";
@@ -59,10 +65,25 @@ public class IcebergOnLocalTest {
 
   @TempDir Path tempPath;
 
+  @Container
+  private PostgreSQLContainer postgresqlContainer =
+      new PostgreSQLContainer(DockerImageName.parse("postgres:12.0"))
+          .withDatabaseName(CATALOG_NAME)
+          .withUsername(JDBC_CATALOG_USER)
+          .withPassword(JDBC_CATALOG_PASSWORD);
+
   @BeforeEach
   public void beforeEach() {
-    Map<String, String> properties = new HashMap<>();
+    JDBC_CATALOG_URI =
+        "jdbc:postgresql://"
+            + postgresqlContainer.getHost()
+            + ":"
+            + postgresqlContainer.getMappedPort(5432)
+            + "/"
+            + CATALOG_NAME;
+    postgresqlContainer.start();
 
+    Map<String, String> properties = new HashMap<>();
     properties.put(CatalogProperties.CATALOG_IMPL, JdbcCatalog.class.getName());
     properties.put(CatalogProperties.URI, JDBC_CATALOG_URI);
     properties.put(JdbcCatalog.PROPERTY_PREFIX + "user", JDBC_CATALOG_USER);
@@ -80,6 +101,7 @@ public class IcebergOnLocalTest {
   @AfterEach
   void afterEach() {
     catalog.dropTable(name, true);
+    postgresqlContainer.stop();
   }
 
   @Test
@@ -157,13 +179,17 @@ public class IcebergOnLocalTest {
             .appName("Java API Demo")
             .config(
                 "spark.sql.extensions",
-                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-            .config(SPARK_SQL_CATALOG, "org.apache.iceberg.spark.SparkCatalog")
-            .config(SPARK_SQL_CATALOG + ".catalog-impl", "org.apache.iceberg.jdbc.JdbcCatalog")
+                org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions.class.getName())
+            .config(SPARK_SQL_CATALOG, org.apache.iceberg.spark.SparkCatalog.class.getName())
+            .config(
+                SPARK_SQL_CATALOG + ".catalog-impl",
+                org.apache.iceberg.jdbc.JdbcCatalog.class.getName())
             .config(SPARK_SQL_CATALOG + ".uri", JDBC_CATALOG_URI)
             .config(SPARK_SQL_CATALOG + ".jdbc.user", JDBC_CATALOG_USER)
             .config(SPARK_SQL_CATALOG + ".jdbc.password", JDBC_CATALOG_PASSWORD)
-            .config(SPARK_SQL_CATALOG + ".io-impl", "org.apache.iceberg.hadoop.HadoopFileIO")
+            .config(
+                SPARK_SQL_CATALOG + ".io-impl",
+                org.apache.iceberg.hadoop.HadoopFileIO.class.getName())
             .config(SPARK_SQL_CATALOG + ".warehouse", tempPath + "/iceberg/warehouse")
             .config("spark.sql.defaultCatalog", CATALOG_NAME)
             .config("spark.eventLog.enabled", "true")
