@@ -34,7 +34,7 @@ public class IcebergOnS3Test {
   String CATALOG_NAME = "demo_local_s3";
   String SPARK_SQL_CATALOG = "spark.sql.catalog." + CATALOG_NAME;
 
-  String DEMO_LOCAL_S_3_NYC_LOGS = CATALOG_NAME + ".nyc.logs";
+  String DEMO_LOCAL_S3_NYC_LOGS_PATH = CATALOG_NAME + ".nyc.logs";
 
   @TempDir Path tempPath;
 
@@ -69,7 +69,7 @@ public class IcebergOnS3Test {
     spark
         .sql(
             "CREATE TABLE "
-                + DEMO_LOCAL_S_3_NYC_LOGS
+                + DEMO_LOCAL_S3_NYC_LOGS_PATH
                 + " (level string, event_time timestamp,message string,call_stack array<string>) USING iceberg"
                 + " PARTITIONED BY (hours(event_time), identity(level))")
         .show();
@@ -77,7 +77,7 @@ public class IcebergOnS3Test {
 
   @AfterEach
   void afterEach() {
-    spark.sql("DROP table " + DEMO_LOCAL_S_3_NYC_LOGS).show();
+    spark.sql("DROP table " + DEMO_LOCAL_S3_NYC_LOGS_PATH).show();
   }
 
   @Test
@@ -91,7 +91,7 @@ public class IcebergOnS3Test {
 
     String query =
         "INSERT INTO "
-            + DEMO_LOCAL_S_3_NYC_LOGS
+            + DEMO_LOCAL_S3_NYC_LOGS_PATH
             + " VALUES "
             + "('info', timestamp 'today', 'Just letting you know!', array('stack trace line 1', 'stack trace line 2', 'stack trace line 3')), "
             + "('warning', timestamp 'today', 'You probably should not do this!', array('stack trace line 1', 'stack trace line 2', 'stack trace line 3')), "
@@ -99,7 +99,7 @@ public class IcebergOnS3Test {
 
     spark.sql(query).show();
 
-    String selectSQLStr = "SELECT * FROM " + DEMO_LOCAL_S_3_NYC_LOGS;
+    String selectSQLStr = "SELECT * FROM " + DEMO_LOCAL_S3_NYC_LOGS_PATH;
     Dataset<Row> ds = spark.sql(selectSQLStr);
     ds.show();
     Assertions.assertEquals(3, ds.count());
