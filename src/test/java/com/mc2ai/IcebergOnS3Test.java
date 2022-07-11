@@ -31,7 +31,6 @@ public class IcebergOnS3Test {
           Types.NestedField.optional(
               4, "call_stack", Types.ListType.ofRequired(5, Types.StringType.get())));
 
-  String JDBC_CATALOG_URI;
   String JDBC_CATALOG_USER = "admin";
   String JDBC_CATALOG_PASSWORD = "password";
   String CATALOG_NAME = "demo_local_s3";
@@ -82,20 +81,16 @@ public class IcebergOnS3Test {
   public void beforeEach() throws Exception {
     minioContainer.start();
     postgresqlContainer.start();
+
     String minioEndPoint =
         "http://" + minioContainer.getHost() + ":" + minioContainer.getMappedPort(9000);
+
     createBucket(minioEndPoint, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, MINIO_WAREHOUSE_BUCKET);
-    JDBC_CATALOG_URI =
-        "jdbc:postgresql://"
-            + postgresqlContainer.getHost()
-            + ":"
-            + postgresqlContainer.getMappedPort(5432)
-            + "/"
-            + CATALOG_NAME;
 
     System.setProperty("aws.accessKeyId", MINIO_ROOT_USER);
     System.setProperty("aws.secretAccessKey", MINIO_ROOT_PASSWORD);
     System.setProperty("aws.region", MINIO_DEFAULT_REGION);
+
     spark =
         SparkSession.builder()
             .master("local[*]")
@@ -107,7 +102,14 @@ public class IcebergOnS3Test {
             .config(
                 SPARK_SQL_CATALOG + ".catalog-impl",
                 org.apache.iceberg.jdbc.JdbcCatalog.class.getName())
-            .config(SPARK_SQL_CATALOG + ".uri", JDBC_CATALOG_URI)
+            .config(
+                SPARK_SQL_CATALOG + ".uri",
+                "jdbc:postgresql://"
+                    + postgresqlContainer.getHost()
+                    + ":"
+                    + postgresqlContainer.getMappedPort(5432)
+                    + "/"
+                    + CATALOG_NAME)
             .config(SPARK_SQL_CATALOG + ".jdbc.user", JDBC_CATALOG_USER)
             .config(SPARK_SQL_CATALOG + ".jdbc.password", JDBC_CATALOG_PASSWORD)
             .config(
