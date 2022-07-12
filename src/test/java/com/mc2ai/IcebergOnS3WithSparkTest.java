@@ -3,8 +3,6 @@ package com.mc2ai;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
-import org.apache.iceberg.Schema;
-import org.apache.iceberg.types.Types;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -16,34 +14,17 @@ import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.utility.DockerImageName;
 
 import java.nio.file.Path;
 
+import static com.mc2ai.TestHelper.*;
+
 // TODO
-public class IcebergOnS3Test {
+public class IcebergOnS3WithSparkTest {
 
-  Schema schema =
-      new Schema(
-          Types.NestedField.required(1, "level", Types.StringType.get()),
-          Types.NestedField.required(2, "event_time", Types.TimestampType.withZone()),
-          Types.NestedField.required(3, "message", Types.StringType.get()),
-          Types.NestedField.optional(
-              4, "call_stack", Types.ListType.ofRequired(5, Types.StringType.get())));
-
-  String JDBC_CATALOG_USER = "admin";
-  String JDBC_CATALOG_PASSWORD = "password";
   String CATALOG_NAME = "demo_local_s3";
   String SPARK_SQL_CATALOG = "spark.sql.catalog." + CATALOG_NAME;
   String DEMO_LOCAL_S3_NYC_LOGS_PATH = CATALOG_NAME + ".nyc.logs";
-
-  String MINIO_ROOT_USER = "minioadmin";
-
-  String MINIO_ROOT_PASSWORD = "minioadmin";
-
-  String MINIO_DEFAULT_REGION = "us-east-1";
-
-  String MINIO_WAREHOUSE_BUCKET = "warehouse";
 
   @TempDir Path tempPath;
 
@@ -51,31 +32,11 @@ public class IcebergOnS3Test {
 
   @Container
   private GenericContainer minioContainer =
-      new GenericContainer("minio/minio:latest")
-          .withEnv("MINIO_ROOT_USER", MINIO_ROOT_USER)
-          .withEnv("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
-          .withExposedPorts(9000, 9001)
-          .withCommand("server /data --console-address :9001");
+      minioContainer(MINIO_IMAGE, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD);
 
   @Container
   private PostgreSQLContainer postgresqlContainer =
-      new PostgreSQLContainer(DockerImageName.parse("postgres:12.0"))
-          .withDatabaseName(CATALOG_NAME)
-          .withUsername(JDBC_CATALOG_USER)
-          .withPassword(JDBC_CATALOG_PASSWORD);
-
-  private void createBucket(String endpoint, String accessKey, String SecretKey, String bucket)
-      throws Exception {
-    MinioClient minioClient =
-        MinioClient.builder().endpoint(endpoint).credentials(accessKey, SecretKey).build();
-
-    boolean found = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
-    if (!found) {
-      minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
-    } else {
-      System.out.println("Bucket already exists:" + bucket);
-    }
-  }
+      postgresqlContainer(POSTGRESQL_IMAGE, JDBC_CATALOG_USER, JDBC_CATALOG_PASSWORD, CATALOG_NAME);
 
   @BeforeEach
   public void beforeEach() throws Exception {
@@ -142,7 +103,7 @@ public class IcebergOnS3Test {
   }
 
   @Test
-  public void sparkSqlS3Test() {
+  public void writeTest() {
     writeS3DataBySparkSQL();
   }
 

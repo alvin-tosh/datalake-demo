@@ -38,8 +38,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.mc2ai.TestHelper.*;
+import static com.mc2ai.TestHelper.POSTGRESQL_IMAGE;
+
 @Testcontainers
-public class IcebergOnLocalTest {
+public class IcebergOnLocalWithSparkTest {
 
   JdbcCatalog catalog = new JdbcCatalog();
   Namespace nyc = Namespace.of("nyc");
@@ -57,8 +60,6 @@ public class IcebergOnLocalTest {
       PartitionSpec.builderFor(schema).hour("event_time").identity("level").build();
 
   String JDBC_CATALOG_URI;
-  String JDBC_CATALOG_USER = "admin";
-  String JDBC_CATALOG_PASSWORD = "password";
   String CATALOG_NAME = "demo_local";
   String SPARK_SQL_CATALOG = "spark.sql.catalog." + CATALOG_NAME;
 
@@ -66,10 +67,7 @@ public class IcebergOnLocalTest {
 
   @Container
   private PostgreSQLContainer postgresqlContainer =
-      new PostgreSQLContainer(DockerImageName.parse("postgres:12.0"))
-          .withDatabaseName(CATALOG_NAME)
-          .withUsername(JDBC_CATALOG_USER)
-          .withPassword(JDBC_CATALOG_PASSWORD);
+      postgresqlContainer(POSTGRESQL_IMAGE, JDBC_CATALOG_USER, JDBC_CATALOG_PASSWORD, CATALOG_NAME);
 
   @BeforeEach
   public void beforeEach() {
@@ -104,7 +102,7 @@ public class IcebergOnLocalTest {
   }
 
   @Test
-  public void localTest() throws IOException {
+  public void readAndWriteByOriginTest() throws IOException {
     writeDataByLocalDataWriter();
     Table table = catalog.loadTable(name);
     CloseableIterable<Record> result = IcebergGenerics.read(table).build();
@@ -115,7 +113,7 @@ public class IcebergOnLocalTest {
   }
 
   @Test
-  public void sparkSqlTest() {
+  public void readAndWriteBySparkSQLTest() {
     writeLocalDataBySparkSQL();
     Table table = catalog.loadTable(name);
     CloseableIterable<Record> result = IcebergGenerics.read(table).build();
