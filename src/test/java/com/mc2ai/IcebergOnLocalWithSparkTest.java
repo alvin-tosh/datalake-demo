@@ -28,7 +28,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -39,7 +38,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.mc2ai.TestHelper.*;
-import static com.mc2ai.TestHelper.POSTGRESQL_IMAGE;
 
 @Testcontainers
 public class IcebergOnLocalWithSparkTest {
